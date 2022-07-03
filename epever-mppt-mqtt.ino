@@ -199,9 +199,14 @@ void setup() {
 
     WiFi.begin(ssid, password);
 
+    int retry=0;
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
+        if (retry > 30) {
+          ESP.restart();
+        }
+        retry++;
     }
 
   Serial.println(F("Connected"));
