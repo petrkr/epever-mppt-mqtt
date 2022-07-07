@@ -30,7 +30,6 @@ bool DEBUG = true;
 #define MQTT_KEY         "..."
 
 
-
 #define MQTT_KEEPALIVE 60000
 #define KEEPALIVE 5000
 
@@ -40,6 +39,7 @@ PubSubClient mqtt(mqttclient);
 ModbusMaster node;
 WebServer server(80);
 
+uint8_t j, result;
 
 void MQTT_connect() {
   // Loop until we're reconnected
@@ -137,6 +137,14 @@ void handleKeepAlive() {
 }
 
 
+void mqtt_print_debug(char* message) {
+  if (!mqtt.connected()) {
+    return;
+  }
+
+  mqtt.publish(String(MQTT_ROOT_TOPIC + String("/debug")).c_str(), message);
+}
+
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(F("Message arrived ["));
   Serial.print(topic);
@@ -171,6 +179,51 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
+
+void readModbus(uint16_t reg, uint8_t len, bool sendMqtt) {
+  uint16_t buff[len];
+  result = node.readHoldingRegisters(reg, len);
+  // do something with data if read is successful
+  if (result != node.ku8MBSuccess)
+  {
+    Serial.print("Modbus read failed: register: ");
+    Serial.println(reg, HEX);
+
+    if (sendMqtt && mqtt.connected()) {
+      mqtt.publish(String(MQTT_ROOT_TOPIC + String("/fail/0x") + String(reg, HEX)).c_str(), "Failed");
+    }
+
+    return;
+  }
+
+  if (DEBUG)
+  {
+    Serial.print("Register 0x");
+    Serial.print(reg, HEX);
+    Serial.print(": ");
+  }
+
+  for (j = 0; j < len; j++)
+  {
+    buff[j] = node.getResponseBuffer(j);
+
+    if (DEBUG) {
+      Serial.print(buff[j], HEX);
+    }
+  }
+
+  if (DEBUG) {
+    Serial.println();
+  }
+
+  Serial.print("Size buffer: ");
+  Serial.println(sizeof(buff));
+
+  if (sendMqtt && mqtt.connected()) {
+    mqtt.publish(String(MQTT_ROOT_TOPIC + String("/0x") + String(reg, HEX)).c_str(), (uint8_t*)buff, sizeof(buff));
+  }
+}
+
 long previousMQTTKeepAliveMillis = 0;
 long mqtt_keepalive_counter = 0;
 void handleMQTTKeepAlive() {
@@ -183,6 +236,10 @@ void handleMQTTKeepAlive() {
       return;
     }
 
+    // Freq, Voltage
+    readModbus(0x3100, 1, true);
+    delay(5);
+
     mqtt.publish(String(MQTT_ROOT_TOPIC + String("/keepalive")).c_str(), String(mqtt_keepalive_counter).c_str());
     Serial.println("MQTT Keep Alive");
   }
@@ -194,20 +251,20 @@ void setup() {
   Serial.print(F("Version: "));
   Serial.println(ver);
 
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
 
-    WiFi.begin(ssid, password);
+  WiFi.begin(ssid, password);
 
-    int retry=0;
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-        if (retry > 30) {
-          ESP.restart();
-        }
-        retry++;
+  int retry = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    if (retry > 30) {
+      ESP.restart();
     }
+    retry++;
+  }
 
   Serial.println(F("Connected"));
 
@@ -226,9 +283,21 @@ void setup() {
   MQTT_connect();
   Serial.println(F("OK"));
 
+  Serial.print(F("Configure modbus... "));
+
+  Serial2.begin(115200, SERIAL_8N1, RxD1, TxD1);
+
+  node.begin(1, Serial2);
+
+  Serial.println(F("OK"));
+
   Serial.println(F("Ready"));
   Serial.print(F("IP address: "));
   Serial.println(WiFi.localIP());
+
+  mqtt_print_debug("Test message on boot");
+
+  readModbus(0x3101, 1, true);
 }
 
 void loop() {
