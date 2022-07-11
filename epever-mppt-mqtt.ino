@@ -181,8 +181,24 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
 
 
 void readModbus(uint16_t reg, uint8_t len, bool sendMqtt) {
+  readModbus(reg, len, sendMqtt, 4);
+}
+
+void readModbus(uint16_t reg, uint8_t len, bool sendMqtt, uint8_t registerType) {
   uint16_t buff[len];
-  result = node.readInputRegisters(reg, len);
+
+  switch (registerType) {
+    case 3:
+      result = node.readHoldingRegisters(reg, len);
+      break;
+    case 4:
+      result = node.readInputRegisters(reg, len);
+      break;
+    default:
+      Serial.println("Unknown register type");
+      return;
+  }
+
   // do something with data if read is successful
   if (result != node.ku8MBSuccess)
   {
@@ -247,6 +263,9 @@ void handleMQTTKeepAlive() {
     delay(5);
 
     readModbus(0x311A, 1, true);
+    delay(5);
+
+    readModbus(0x3200, 3, true);
     delay(5);
 
     mqtt.publish(String(MQTT_ROOT_TOPIC + String("/keepalive")).c_str(), String(mqtt_keepalive_counter).c_str());
@@ -322,6 +341,8 @@ void setup() {
   Serial.println(F("Ready"));
   Serial.print(F("IP address: "));
   Serial.println(WiFi.localIP());
+
+  readModbus(0x9013, 3, true, 3);
 
   mqtt_print_debug("Boot done, running main loop");
 
