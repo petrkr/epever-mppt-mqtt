@@ -8,7 +8,7 @@
 #include "ModbusMaster.h"
 #include "PubSubClient.h"
 
-const char* ver = "1.0.0";
+const char* ver = "0.0.2";
 
 const char* host = "SolarOTA";
 
@@ -182,7 +182,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
 
 void readModbus(uint16_t reg, uint8_t len, bool sendMqtt) {
   uint16_t buff[len];
-  result = node.readHoldingRegisters(reg, len);
+  result = node.readInputRegisters(reg, len);
   // do something with data if read is successful
   if (result != node.ku8MBSuccess)
   {
