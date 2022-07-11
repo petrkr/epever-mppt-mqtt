@@ -240,8 +240,13 @@ void handleMQTTKeepAlive() {
       return;
     }
 
-    // Freq, Voltage
-    readModbus(0x3100, 1, true);
+    readModbus(0x3100, 18, true);
+    delay(5);
+
+    readModbus(0x3304, 16, true);
+    delay(5);
+
+    readModbus(0x311A, 1, true);
     delay(5);
 
     mqtt.publish(String(MQTT_ROOT_TOPIC + String("/keepalive")).c_str(), String(mqtt_keepalive_counter).c_str());
