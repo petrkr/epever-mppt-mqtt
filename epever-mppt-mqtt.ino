@@ -249,6 +249,17 @@ void handleMQTTKeepAlive() {
   }
 }
 
+void preTransmission()
+{
+  digitalWrite(RTS, 1);
+  delay(1);
+}
+
+void postTransmission()
+{
+  digitalWrite(RTS, 0);
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println(F("Epever Solar Booting..."));
@@ -291,7 +302,15 @@ void setup() {
 
   Serial2.begin(115200, SERIAL_8N1, RxD1, TxD1);
 
+
   node.begin(1, Serial2);
+
+  if (RTS > 0) {
+    pinMode(RTS, OUTPUT);
+    digitalWrite(RTS, 0);
+    node.preTransmission(preTransmission);
+    node.postTransmission(postTransmission);
+  }
 
   Serial.println(F("OK"));
 
@@ -299,9 +318,8 @@ void setup() {
   Serial.print(F("IP address: "));
   Serial.println(WiFi.localIP());
 
-  mqtt_print_debug("Test message on boot");
+  mqtt_print_debug("Boot done, running main loop");
 
-  readModbus(0x3101, 1, true);
 }
 
 void loop() {
