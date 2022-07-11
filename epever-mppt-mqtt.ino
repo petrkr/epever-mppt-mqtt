@@ -233,6 +233,10 @@ void handleMQTTKeepAlive() {
     mqtt_keepalive_counter++;
 
     if (!mqtt.connected()) {
+      MQTT_connect();
+    }
+
+    if (!mqtt.connected()) {
       return;
     }
 
