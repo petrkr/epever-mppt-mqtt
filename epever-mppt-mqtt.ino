@@ -177,6 +177,28 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     ESP.restart();
     return;
   }
+
+  if (length > 0 && payload[0] == 'W') {
+    mqtt.publish(String(MQTT_ROOT_TOPIC).c_str(), "Write date, disabled");
+    return;
+
+    node.setTransmitBuffer(0, 0x0800); // 08 min 00 sec
+    node.setTransmitBuffer(1, 0x0E01); // 0E (14) day, 01 hour
+    node.setTransmitBuffer(2, 0x1607); // 16 (22) year, 07 month
+
+    result = node.writeMultipleRegisters(0x9013, 3);
+    if (result != node.ku8MBSuccess)
+    {
+      if (mqtt.connected()) {
+        mqtt.publish(String(MQTT_ROOT_TOPIC + String("/fail/0x9013")).c_str(), "Failed");
+      }
+    }
+    else {
+      if (mqtt.connected()) {
+        mqtt.publish(String(MQTT_ROOT_TOPIC + String("/0x9013")).c_str(), "Success");
+      }
+    }
+  }
 }
 
 
